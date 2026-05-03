@@ -15,7 +15,12 @@ async def show_next_profile(message: Message, user_id: int):
     is_admin = bool(current_user and current_user['is_admin'])
 
     media = await db.get_user_media(target_user['id'])
-    caption = f"{target_user['name']}, {target_user['age']}, {target_user['city']}\nЦель: {target_user['purpose']}\n\n{target_user['description']}"
+    
+    name_str = f"<b>{target_user['name']}</b>"
+    if target_user['is_vip']: name_str += " 💎"
+    if target_user['is_verified']: name_str += " ✅"
+    
+    caption = f"{name_str}, {target_user['age']}, {target_user['city']}\nЦель: {target_user['purpose']}\n\n{target_user['description']}"
     
     if is_admin:
         caption += f"\n\n🆔 ID: <code>{target_user['id']}</code>"
@@ -55,7 +60,12 @@ async def show_next_liker(message: Message, user_id: int):
     is_admin = bool(current_user and current_user['is_admin'])
 
     media = await db.get_user_media(target_user['id'])
-    caption = f"Вы понравились этому человеку! ❤️\n\n{target_user['name']}, {target_user['age']}, {target_user['city']}\nЦель: {target_user['purpose']}\n\n{target_user['description']}"
+    
+    name_str = f"<b>{target_user['name']}</b>"
+    if target_user['is_vip']: name_str += " 💎"
+    if target_user['is_verified']: name_str += " ✅"
+
+    caption = f"Вы понравились этому человеку! ❤️\n\n{name_str}, {target_user['age']}, {target_user['city']}\nЦель: {target_user['purpose']}\n\n{target_user['description']}"
     
     if is_admin:
         caption += f"\n\n🆔 ID: <code>{target_user['id']}</code>"
@@ -203,7 +213,11 @@ async def show_matches(message: Message):
         else:
             link = f"tg://user?id={match_dict['id']}"
             
-        caption = f"<b>{match_dict['name']}, {match_dict['age']}</b>, {match_dict['city']}\n\n<a href='{link}'>Написать {match_dict['name']} 💌</a>"
+        name_str = f"<b>{match_dict['name']}</b>"
+        if match_dict['is_vip']: name_str += " 💎"
+        if match_dict['is_verified']: name_str += " ✅"
+            
+        caption = f"{name_str}, {match_dict['age']}, {match_dict['city']}\n\n<a href='{link}'>Написать {match_dict['name']} 💌</a>"
         if is_admin:
             caption += f"\n\n🆔 ID: <code>{match_dict['id']}</code>"
 

@@ -6,7 +6,7 @@ def get_main_menu():
             [KeyboardButton(text="❤️ Смотреть анкеты")],
             [KeyboardButton(text="🙏 Кто меня лайкнул"), KeyboardButton(text="💞 Взаимности")],
             [KeyboardButton(text="👤 Моя анкета"), KeyboardButton(text="⚙️ Настройки поиска")],
-            [KeyboardButton(text="🆘 Поддержка")]
+            [KeyboardButton(text="💎 VIP-статус"), KeyboardButton(text="🆘 Поддержка")]
         ],
         resize_keyboard=True
     )

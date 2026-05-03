@@ -31,28 +31,70 @@ async def admin_panel(message: Message):
         f"┣ 👨 Парней: <b>{men}</b>\n"
         f"┣ 👩 Девушек: <b>{women}</b>\n"
         f"┣ ❤️ Всего мэтчей: <b>{stats['matches']}</b>\n"
+        f"┣ 💎 VIP-юзеров: <b>{stats['vip']}</b>\n"
+        f"┣ ✅ Верифицированных: <b>{stats['verified']}</b>\n"
         f"┗ 🚫 Забанено: <b>{stats['banned']}</b>\n\n"
         f"🛠 <b>УПРАВЛЕНИЕ КОМАНДАМИ:</b>\n"
         f"┃\n"
         f"┣ 🚷 <b>Блокировка:</b>\n"
-        f"┃ <code>/ban ID</code> — Забанить\n"
-        f"┃ <code>/unban ID</code> — Разбанить\n"
+        f"┃ <code>/ban ID</code> | <code>/unban ID</code>\n"
         f"┃\n"
         f"┣ 🧑‍💼 <b>Модераторы:</b>\n"
-        f"┃ <code>/setadmin ID</code> — Назначить\n"
-        f"┃ <code>/unsetadmin ID</code> — Снять\n"
+        f"┃ <code>/setadmin ID</code> | <code>/unsetadmin ID</code>\n"
         f"┃\n"
-        f"┣ 💎 <b>Главные:</b>\n"
-        f"┃ <code>/setsuper ID</code> — Назначить\n"
-        f"┃ <code>/unsetsuper ID</code> — Снять\n"
+        f"┣ 💎 <b>VIP & ✅ Верификация:</b>\n"
+        f"┃ <code>/setvip ID</code> | <code>/unsetvip ID</code>\n"
+        f"┃ <code>/verify ID</code> | <code>/unverify ID</code>\n"
         f"┃\n"
-        f"┗ 🗑 <b>Удаление:</b>\n"
-        f"  (Используйте кнопки в поиске)\n\n"
+        f"┣ 👑 <b>Главные:</b>\n"
+        f"┃ <code>/setsuper ID</code> | <code>/unsetsuper ID</code>\n"
+        f"┃\n"
+        f"┗ 🗑 <b>Удаление:</b> (Кнопки в поиске)\n\n"
         f"━━━━━━━━━━━━━━━━━━\n"
         f"<i>Последнее обновление: {message.date.strftime('%H:%M:%S')}</i>"
     )
     
     await message.answer(text, parse_mode="HTML")
+
+@router.message(Command("setvip"))
+async def set_vip(message: Message):
+    user = await db.get_user(message.from_user.id)
+    if not user or not user['is_admin']: return
+    try:
+        target_id = int(message.text.split()[1])
+        await db.set_vip_status(target_id, 1)
+        await message.answer(f"Пользователь {target_id} теперь VIP 💎")
+    except (IndexError, ValueError): await message.answer("Использование: /setvip ID")
+
+@router.message(Command("unsetvip"))
+async def unset_vip(message: Message):
+    user = await db.get_user(message.from_user.id)
+    if not user or not user['is_admin']: return
+    try:
+        target_id = int(message.text.split()[1])
+        await db.set_vip_status(target_id, 0)
+        await message.answer(f"Пользователь {target_id} больше не VIP")
+    except (IndexError, ValueError): await message.answer("Использование: /unsetvip ID")
+
+@router.message(Command("verify"))
+async def verify_user(message: Message):
+    user = await db.get_user(message.from_user.id)
+    if not user or not user['is_admin']: return
+    try:
+        target_id = int(message.text.split()[1])
+        await db.set_verified_status(target_id, 1)
+        await message.answer(f"Пользователь {target_id} верифицирован ✅")
+    except (IndexError, ValueError): await message.answer("Использование: /verify ID")
+
+@router.message(Command("unverify"))
+async def unverify_user(message: Message):
+    user = await db.get_user(message.from_user.id)
+    if not user or not user['is_admin']: return
+    try:
+        target_id = int(message.text.split()[1])
+        await db.set_verified_status(target_id, 0)
+        await message.answer(f"Пользователь {target_id} больше не верифицирован")
+    except (IndexError, ValueError): await message.answer("Использование: /unverify ID")
 
 @router.message(Command("setadmin"))
 async def set_admin(message: Message):

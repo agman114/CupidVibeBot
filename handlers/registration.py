@@ -190,26 +190,30 @@ async def show_my_profile(message: Message):
     user = await db.get_user(message.from_user.id)
     if user:
         media = await db.get_user_media(message.from_user.id)
-        caption = f"{user['name']}, {user['age']}, {user['city']}\nЦель: {user['purpose']}\n\n{user['description']}"
+        
+        name_str = f"<b>{user['name']}</b>"
+        if user['is_vip']: name_str += " 💎"
+        if user['is_verified']: name_str += " ✅"
+        
+        caption = f"{name_str}, {user['age']}, {user['city']}\nЦель: {user['purpose']}\n\n{user['description']}"
         from keyboards.inline import get_profile_keyboard
         
         if not media:
-            # На всякий случай, если в media_user пусто, используем старое поле photo
-            await message.answer_photo(photo=user['photo'], caption=caption, reply_markup=get_profile_keyboard())
+            await message.answer_photo(photo=user['photo'], caption=caption, reply_markup=get_profile_keyboard(), parse_mode="HTML")
         elif len(media) == 1:
             m = media[0]
             if m['file_type'] == 'photo':
-                await message.answer_photo(photo=m['file_id'], caption=caption, reply_markup=get_profile_keyboard())
+                await message.answer_photo(photo=m['file_id'], caption=caption, reply_markup=get_profile_keyboard(), parse_mode="HTML")
             else:
-                await message.answer_video(video=m['file_id'], caption=caption, reply_markup=get_profile_keyboard())
+                await message.answer_video(video=m['file_id'], caption=caption, reply_markup=get_profile_keyboard(), parse_mode="HTML")
         else:
             from aiogram.types import InputMediaPhoto, InputMediaVideo
             media_group = []
             for i, m in enumerate(media):
                 if m['file_type'] == 'photo':
-                    media_group.append(InputMediaPhoto(media=m['file_id'], caption=caption if i == 0 else None))
+                    media_group.append(InputMediaPhoto(media=m['file_id'], caption=caption if i == 0 else None, parse_mode="HTML"))
                 else:
-                    media_group.append(InputMediaVideo(media=m['file_id'], caption=caption if i == 0 else None))
+                    media_group.append(InputMediaVideo(media=m['file_id'], caption=caption if i == 0 else None, parse_mode="HTML"))
             
             await message.answer_media_group(media=media_group)
             await message.answer("Управление анкетой:", reply_markup=get_profile_keyboard())

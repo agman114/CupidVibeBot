@@ -47,6 +47,8 @@ async def create_tables():
             ('filter_purposes', "TEXT DEFAULT ''"),
             ('is_admin', 'INTEGER DEFAULT 0'),
             ('is_super_admin', 'INTEGER DEFAULT 0'),
+            ('is_vip', 'INTEGER DEFAULT 0'),
+            ('is_verified', 'INTEGER DEFAULT 0'),
             ('is_banned', 'INTEGER DEFAULT 0')
         ]:
             try:
@@ -246,6 +248,22 @@ async def set_super_admin_status(user_id, status: int):
         ''', (user_id, status))
         await db.commit()
 
+async def set_vip_status(user_id, status: int):
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute('''
+            INSERT INTO users (id, is_vip) VALUES (?, ?)
+            ON CONFLICT(id) DO UPDATE SET is_vip = excluded.is_vip
+        ''', (user_id, status))
+        await db.commit()
+
+async def set_verified_status(user_id, status: int):
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute('''
+            INSERT INTO users (id, is_verified) VALUES (?, ?)
+            ON CONFLICT(id) DO UPDATE SET is_verified = excluded.is_verified
+        ''', (user_id, status))
+        await db.commit()
+
 async def get_all_users_count():
     async with aiosqlite.connect(DB_NAME) as db:
         async with db.execute('SELECT COUNT(*) FROM users') as cursor:
@@ -269,6 +287,15 @@ async def get_detailed_stats():
         async with db.execute("SELECT COUNT(*) FROM likes l1 JOIN likes l2 ON l1.from_user = l2.to_user AND l1.to_user = l2.from_user WHERE l1.is_like = 1 AND l2.is_like = 1 AND l1.from_user < l1.to_user") as cursor:
             res = await cursor.fetchone()
             stats['matches'] = res[0]
+            
+        # VIP и Верификация
+        async with db.execute("SELECT COUNT(*) FROM users WHERE is_vip = 1") as cursor:
+            res = await cursor.fetchone()
+            stats['vip'] = res[0]
+            
+        async with db.execute("SELECT COUNT(*) FROM users WHERE is_verified = 1") as cursor:
+            res = await cursor.fetchone()
+            stats['verified'] = res[0]
             
         return stats
 
