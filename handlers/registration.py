@@ -19,6 +19,17 @@ async def cmd_start(message: Message, state: FSMContext):
             reply_markup=get_main_menu()
         )
     else:
+        # Check for referral code
+        args = message.text.split()
+        referred_by = None
+        if len(args) > 1 and args[1].startswith("ref_"):
+            try:
+                referred_by = int(args[1].replace("ref_", ""))
+                if referred_by == message.from_user.id: referred_by = None
+            except:
+                pass
+        
+        await state.update_data(referred_by=referred_by)
         await message.answer(
             "<b>Бот создан ClimaxGroup</b>\n\nДобро пожаловать в бот для знакомств! Давайте создадим вашу анкету.\nКак вас зовут?",
             reply_markup=ReplyKeyboardRemove(),
@@ -168,8 +179,20 @@ async def process_media_done(message: Message, state: FSMContext):
         city=user_data['city'],
         description=user_data['description'],
         photo=main_photo or media_list[0]["file_id"],
-        username=message.from_user.username
+        username=message.from_user.username,
+        referred_by=user_data.get('referred_by')
     )
+    
+    # Награда рефереру
+    if user_data.get('referred_by'):
+        try:
+            await db.activate_vip(user_data['referred_by'], days=7)
+            await message.bot.send_message(
+                user_data['referred_by'],
+                "У вас новый реферал! 🎉 Вы получили 7 дней VIP-статуса."
+            )
+        except:
+            pass
     
     await db.clear_user_media(message.from_user.id)
     for m in media_list:
@@ -372,10 +395,31 @@ async def process_delete_profile(callback: CallbackQuery):
     await callback.message.delete()
     await callback.answer()
 
-@router.message(F.text == "🆘 Поддержка")
+@router.message(F.text == "🆘 Поддержка и Донат")
 async def show_support(message: Message):
     from keyboards.inline import get_support_keyboard
     await message.answer(
-        "Возникли вопросы или предложения? Вы можете написать нам в Discord или в аккаунт поддержки Telegram! 🆘",
-        reply_markup=get_support_keyboard()
+        "Возникли вопросы или хотите поддержать проект? ❤️\n\n"
+        "Вы можете приобрести <b>VIP-статус</b> за 100 Telegram Stars (⭐️) на месяц!\n\n"
+        "Также вы можете написать нам в Discord или в поддержку Telegram. 🆘",
+        reply_markup=get_support_keyboard(),
+        parse_mode="HTML"
     )
+
+@router.callback_query(F.data == "referral_menu")
+async def show_referral_menu(callback: CallbackQuery):
+    bot_info = await callback.bot.get_me()
+    bot_username = bot_info.username
+    user_id = callback.from_user.id
+    
+    ref_link = f"https://t.me/{bot_username}?start=ref_{user_id}"
+    
+    text = (
+        f"<b>🎁 РЕФЕРАЛЬНАЯ ПРОГРАММА</b>\n\n"
+        f"Приглашайте друзей и получайте бонусы!\n"
+        f"Если кто-то зарегистрируется по вашей ссылке, вы получите <b>7 дней VIP-статуса</b> бесплатно! 🎉\n\n"
+        f"Ваша ссылка для приглашения:\n<code>{ref_link}</code>"
+    )
+    
+    await callback.message.answer(text, parse_mode="HTML")
+    await callback.answer()

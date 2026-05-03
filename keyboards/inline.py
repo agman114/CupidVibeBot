@@ -1,12 +1,15 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-def get_swipe_keyboard(target_user_id, is_admin=False):
+def get_swipe_keyboard(target_user_id, is_admin=False, is_vip=False):
     buttons = [
         [
             InlineKeyboardButton(text="👎", callback_data=f"swipe_dislike_{target_user_id}"),
             InlineKeyboardButton(text="❤️", callback_data=f"swipe_like_{target_user_id}")
         ]
     ]
+    if is_vip:
+        buttons.append([InlineKeyboardButton(text="⭐ Супер-лайк", callback_data=f"swipe_super_{target_user_id}")])
+        
     if is_admin:
         buttons.append([
             InlineKeyboardButton(text="⛔ Бан", callback_data=f"admin_ban_{target_user_id}"),
@@ -100,8 +103,39 @@ def get_liker_swipe_keyboard(target_user_id, is_admin=False):
 def get_support_keyboard():
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
+            [InlineKeyboardButton(text="💎 Купить VIP (100 ⭐️)", callback_data="buy_vip_stars")],
+            [InlineKeyboardButton(text="🔗 Реферальная программа", callback_data="referral_menu")],
             [InlineKeyboardButton(text="Discord Сервер 💬", url="https://discord.gg/RE7QPefw8t")],
             [InlineKeyboardButton(text="Написать в поддержку (Telegram) ✈️", url="https://t.me/burninglovesupport")]
         ]
     )
     return keyboard
+
+def get_matches_keyboard(matches_on_page, page, total_pages):
+    buttons = []
+    
+    # Кнопки для каждого мэтча
+    for match in matches_on_page:
+        match_dict = dict(match)
+        name = match_dict['name']
+        if match_dict['is_vip']: name += " 💎"
+        
+        # Если есть username, даем прямую ссылку, иначе ссылку на профиль
+        if match_dict.get('username'):
+            url = f"https://t.me/{match_dict['username']}"
+        else:
+            url = f"tg://user?id={match_dict['id']}"
+            
+        buttons.append([InlineKeyboardButton(text=f"💌 {name}", url=url)])
+    
+    # Кнопки навигации
+    nav_buttons = []
+    if page > 0:
+        nav_buttons.append(InlineKeyboardButton(text="⬅️ Назад", callback_data=f"matches_page_{page-1}"))
+    if page < total_pages - 1:
+        nav_buttons.append(InlineKeyboardButton(text="Вперед ➡️", callback_data=f"matches_page_{page+1}"))
+    
+    if nav_buttons:
+        buttons.append(nav_buttons)
+        
+    return InlineKeyboardMarkup(inline_keyboard=buttons)

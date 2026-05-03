@@ -5,7 +5,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 
 from config import BOT_TOKEN, ADMIN_ID
 from database.db import create_tables
-from handlers import registration, search, filters, admin, vip
+from handlers import registration, search, filters, admin, vip, payments, super_like
 from aiogram import BaseMiddleware
 from aiogram.types import Message, CallbackQuery
 import database.db as db
@@ -56,6 +56,8 @@ async def main():
     dp.include_router(search.router)
     dp.include_router(filters.router)
     dp.include_router(vip.router)
+    dp.include_router(payments.router)
+    dp.include_router(super_like.router)
     
     # Запуск поллинга
     logging.info("Бот запущен!")

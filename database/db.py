@@ -48,8 +48,12 @@ async def create_tables():
             ('is_admin', 'INTEGER DEFAULT 0'),
             ('is_super_admin', 'INTEGER DEFAULT 0'),
             ('is_vip', 'INTEGER DEFAULT 0'),
+            ('vip_until', 'TEXT'),
             ('is_verified', 'INTEGER DEFAULT 0'),
-            ('is_banned', 'INTEGER DEFAULT 0')
+            ('is_banned', 'INTEGER DEFAULT 0'),
+            ('super_likes_used', 'INTEGER DEFAULT 0'),
+            ('super_likes_last_reset', 'TEXT'),
+            ('referred_by', 'INTEGER')
         ]:
             try:
                 await db.execute(f'ALTER TABLE users ADD COLUMN {col} {col_type}')
@@ -95,11 +99,11 @@ async def clear_user_media(user_id):
         await db.execute('DELETE FROM user_media WHERE user_id = ?', (user_id,))
         await db.commit()
 
-async def add_user(user_id, name, age, gender, looking_for, purpose, city, description, photo, username=None):
+async def add_user(user_id, name, age, gender, looking_for, purpose, city, description, photo, username=None, referred_by=None):
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute('''
-            INSERT INTO users (id, name, age, gender, looking_for, purpose, city, description, photo, username)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO users (id, name, age, gender, looking_for, purpose, city, description, photo, username, referred_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 name=excluded.name,
                 age=excluded.age,
@@ -110,7 +114,7 @@ async def add_user(user_id, name, age, gender, looking_for, purpose, city, descr
                 description=excluded.description,
                 photo=excluded.photo,
                 username=excluded.username
-        ''', (user_id, name, age, gender, looking_for, purpose, city, description, photo, username))
+        ''', (user_id, name, age, gender, looking_for, purpose, city, description, photo, username, referred_by))
         await db.commit()
 
 async def get_user(user_id):
@@ -187,6 +191,7 @@ async def get_next_user(current_user_id):
         WHERE id != ? 
         AND id NOT IN (SELECT to_user FROM likes WHERE from_user = ?)
         {filter_str}
+        ORDER BY is_vip DESC, RANDOM()
         LIMIT 1
     '''
     
@@ -256,6 +261,32 @@ async def set_vip_status(user_id, status: int):
         ''', (user_id, status))
         await db.commit()
 
+async def activate_vip(user_id, days=30):
+    from datetime import datetime, timedelta
+    async with aiosqlite.connect(DB_NAME) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute('SELECT vip_until FROM users WHERE id = ?', (user_id,)) as cursor:
+            row = await cursor.fetchone()
+            
+        now = datetime.now()
+        base_date = now
+        
+        if row and row['vip_until']:
+            try:
+                until_dt = datetime.strptime(row['vip_until'], '%Y-%m-%d %H:%M:%S')
+                if until_dt > now:
+                    base_date = until_dt
+            except:
+                pass
+                
+        new_until = (base_date + timedelta(days=days)).strftime('%Y-%m-%d %H:%M:%S')
+        
+        await db.execute('''
+            INSERT INTO users (id, is_vip, vip_until) VALUES (?, 1, ?)
+            ON CONFLICT(id) DO UPDATE SET is_vip = 1, vip_until = excluded.vip_until
+        ''', (user_id, new_until))
+        await db.commit()
+
 async def set_verified_status(user_id, status: int):
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute('''
@@ -303,4 +334,28 @@ async def update_user_field(user_id, field, value):
     async with aiosqlite.connect(DB_NAME) as db:
         query = f'UPDATE users SET {field} = ? WHERE id = ?'
         await db.execute(query, (value, user_id))
+        await db.commit()
+
+async def get_super_likes_remaining(user_id):
+    from datetime import datetime, timedelta
+    async with aiosqlite.connect(DB_NAME) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute('SELECT super_likes_used, super_likes_last_reset, is_vip FROM users WHERE id = ?', (user_id,)) as cursor:
+            row = await cursor.fetchone()
+            if not row or not row['is_vip']: return 0
+            
+            now = datetime.now()
+            last_reset = row['super_likes_last_reset']
+            
+            if not last_reset or (now - datetime.strptime(last_reset, '%Y-%m-%d')).days >= 7:
+                # Reset
+                await db.execute('UPDATE users SET super_likes_used = 0, super_likes_last_reset = ? WHERE id = ?', (now.strftime('%Y-%m-%d'), user_id))
+                await db.commit()
+                return 10
+            
+            return max(0, 10 - row['super_likes_used'])
+
+async def use_super_like(user_id):
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute('UPDATE users SET super_likes_used = super_likes_used + 1 WHERE id = ?', (user_id,))
         await db.commit()

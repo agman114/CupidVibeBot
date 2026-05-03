@@ -62,8 +62,8 @@ async def set_vip(message: Message):
     if not user or not user['is_admin']: return
     try:
         target_id = int(message.text.split()[1])
-        await db.set_vip_status(target_id, 1)
-        await message.answer(f"Пользователь {target_id} теперь VIP 💎")
+        await db.activate_vip(target_id, days=30)
+        await message.answer(f"Пользователь {target_id} теперь VIP 💎 (на 30 дней)")
     except (IndexError, ValueError): await message.answer("Использование: /setvip ID")
 
 @router.message(Command("unsetvip"))

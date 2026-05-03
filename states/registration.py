@@ -19,3 +19,6 @@ class EditProfileStates(StatesGroup):
     edit_gender = State()
     edit_looking_for = State()
     edit_purpose = State()
+
+class SuperLikeStates(StatesGroup):
+    waiting_for_message = State()
