@@ -20,8 +20,9 @@ async def cmd_start(message: Message, state: FSMContext):
         )
     else:
         await message.answer(
-            "Добро пожаловать в бот для знакомств! Давайте создадим вашу анкету.\nКак вас зовут?",
-            reply_markup=ReplyKeyboardRemove()
+            "<b>Бот создан ClimaxGroup</b>\n\nДобро пожаловать в бот для знакомств! Давайте создадим вашу анкету.\nКак вас зовут?",
+            reply_markup=ReplyKeyboardRemove(),
+            parse_mode="HTML"
         )
         await state.set_state(RegistrationStates.waiting_for_name)
 
