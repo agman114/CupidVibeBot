@@ -7,6 +7,9 @@ import database.db as db
 from keyboards.reply import get_main_menu
 import asyncio
 import logging
+import os
+import sys
+from database import drive_sync
 
 router = Router()
 
@@ -62,6 +65,9 @@ async def admin_panel(message: Message):
         f"┣ 📢 <b>Рассылка всем (Главные):</b>\n"
         f"┃ <code>/broadcast</code>\n"
         f"┃\n"
+        f"┣ 🔄 <b>Перезагрузка (Главные):</b>\n"
+        f"┃ <code>/restart</code>\n"
+        f"┃\n"
         f"┗ 🗑 <b>Удаление:</b> (Кнопки в поиске)\n\n"
         f"━━━━━━━━━━━━━━━━━━\n"
         f"<i>Последнее обновление: {message.date.strftime('%H:%M:%S')}</i>"
@@ -98,6 +104,28 @@ async def unset_super_admin(message: Message):
         await db.set_super_admin_status(target_id, 0)
         await message.answer(f"Пользователь {target_id} больше не главный админ")
     except (IndexError, ValueError): await message.answer("Использование: /unsetsuper ID")
+
+@router.message(Command("restart"))
+async def restart_bot(message: Message):
+    user = await db.get_user(message.from_user.id)
+    if not user or not user['is_super_admin']: 
+        await message.answer("Эта команда доступна только Главным админам.")
+        return
+        
+    folder_id = os.environ.get("GOOGLE_DRIVE_FOLDER_ID")
+    if folder_id:
+        await message.answer("⏳ Создаю ручной бэкап базы данных на Google Диск перед перезагрузкой...")
+        success = await drive_sync.upload_backup(folder_id, "manual")
+        if success:
+            await message.answer("✅ Бэкап успешно создан (manual_backup.db). Перезагружаюсь...")
+        else:
+            await message.answer("⚠️ Не удалось создать бэкап! Перезагрузка отменена для безопасности данных.")
+            return
+    else:
+        await message.answer("⚠️ GOOGLE_DRIVE_FOLDER_ID не настроен. Бэкап не сделан. Перезагружаюсь...")
+
+    await asyncio.sleep(1)
+    os.execv(sys.executable, ['python'] + sys.argv)
 
 @router.message(Command("find"))
 async def find_user_by_name(message: Message):

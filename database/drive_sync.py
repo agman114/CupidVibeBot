@@ -76,7 +76,12 @@ async def upload_backup(folder_id, backup_type="short", index=1):
         logging.error(f"Cannot upload backup: {DB_NAME} does not exist locally.")
         return False
 
-    file_name = f"backup_{index}.db" if backup_type == "short" else f"daily_{index}.db"
+    if backup_type == "short":
+        file_name = f"backup_{index}.db"
+    elif backup_type == "daily":
+        file_name = f"daily_{index}.db"
+    else:
+        file_name = "manual_backup.db"
 
     try:
         # Check if the file already exists in the folder
