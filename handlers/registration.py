@@ -4,7 +4,7 @@ from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 
 from states.registration import RegistrationStates
-from keyboards.reply import get_main_menu, get_gender_keyboard, get_looking_for_keyboard, get_purpose_keyboard, get_location_keyboard
+from keyboards.reply import get_main_menu, get_gender_keyboard, get_looking_for_keyboard, get_purpose_keyboard, get_location_keyboard, get_back_keyboard
 import database.db as db
 import aiohttp
 
@@ -40,11 +40,16 @@ async def cmd_start(message: Message, state: FSMContext):
 @router.message(RegistrationStates.waiting_for_name)
 async def process_name(message: Message, state: FSMContext):
     await state.update_data(name=message.text)
-    await message.answer("Сколько вам лет?")
+    await message.answer("Сколько вам лет?", reply_markup=get_back_keyboard())
     await state.set_state(RegistrationStates.waiting_for_age)
 
 @router.message(RegistrationStates.waiting_for_age)
 async def process_age(message: Message, state: FSMContext):
+    if message.text == "⬅️ Назад":
+        await message.answer("Как вас зовут?", reply_markup=ReplyKeyboardRemove())
+        await state.set_state(RegistrationStates.waiting_for_name)
+        return
+        
     if not message.text.isdigit() or not (14 <= int(message.text) <= 100):
         await message.answer("Пожалуйста, введите корректный возраст (число от 14 до 100).")
         return
@@ -54,6 +59,11 @@ async def process_age(message: Message, state: FSMContext):
 
 @router.message(RegistrationStates.waiting_for_gender)
 async def process_gender(message: Message, state: FSMContext):
+    if message.text == "⬅️ Назад":
+        await message.answer("Сколько вам лет?", reply_markup=get_back_keyboard())
+        await state.set_state(RegistrationStates.waiting_for_age)
+        return
+        
     if message.text not in ["Парень", "Девушка"]:
         await message.answer("Пожалуйста, выберите пол, используя кнопки ниже.", reply_markup=get_gender_keyboard())
         return
@@ -63,6 +73,11 @@ async def process_gender(message: Message, state: FSMContext):
 
 @router.message(RegistrationStates.waiting_for_looking_for)
 async def process_looking_for(message: Message, state: FSMContext):
+    if message.text == "⬅️ Назад":
+        await message.answer("Ваш пол?", reply_markup=get_gender_keyboard())
+        await state.set_state(RegistrationStates.waiting_for_gender)
+        return
+        
     if message.text not in ["Парня", "Девушку", "Всех"]:
         await message.answer("Пожалуйста, выберите, кого вы ищете, используя кнопки.", reply_markup=get_looking_for_keyboard())
         return
@@ -72,6 +87,11 @@ async def process_looking_for(message: Message, state: FSMContext):
 
 @router.message(RegistrationStates.waiting_for_purpose)
 async def process_purpose(message: Message, state: FSMContext):
+    if message.text == "⬅️ Назад":
+        await message.answer("Кого вы ищете?", reply_markup=get_looking_for_keyboard())
+        await state.set_state(RegistrationStates.waiting_for_looking_for)
+        return
+        
     valid_purposes = [
         "Поиск секса/одноразового развлечения",
         "Поиск отношения",
@@ -116,14 +136,24 @@ async def process_city_location(message: Message, state: FSMContext):
 
 @router.message(RegistrationStates.waiting_for_city, F.text)
 async def process_city_text(message: Message, state: FSMContext):
+    if message.text == "⬅️ Назад":
+        await message.answer("Для чего вы решили воспользоваться ботом?", reply_markup=get_purpose_keyboard())
+        await state.set_state(RegistrationStates.waiting_for_purpose)
+        return
+        
     await state.update_data(city=message.text.strip().title())
-    await message.answer("Напишите немного о себе:", reply_markup=ReplyKeyboardRemove())
+    await message.answer("Напишите немного о себе:", reply_markup=get_back_keyboard())
     await state.set_state(RegistrationStates.waiting_for_description)
 
 from keyboards.reply import get_main_menu, get_gender_keyboard, get_looking_for_keyboard, get_purpose_keyboard, get_location_keyboard, get_media_keyboard
 
 @router.message(RegistrationStates.waiting_for_description)
 async def process_description(message: Message, state: FSMContext):
+    if message.text == "⬅️ Назад":
+        await message.answer("В каком городе вы находитесь?", reply_markup=get_location_keyboard())
+        await state.set_state(RegistrationStates.waiting_for_city)
+        return
+        
     await state.update_data(description=message.text)
     await message.answer(
         "Теперь отправьте до 5 фото или видео для вашей анкеты.\n"
@@ -153,6 +183,11 @@ async def process_media(message: Message, state: FSMContext):
     await state.update_data(media=media_list)
     
     await message.answer(f"Загружено {len(media_list)}/5. Отправьте еще или нажмите «Завершить».")
+
+@router.message(RegistrationStates.waiting_for_media, F.text == "⬅️ Назад")
+async def process_media_back(message: Message, state: FSMContext):
+    await message.answer("Напишите немного о себе:", reply_markup=get_back_keyboard())
+    await state.set_state(RegistrationStates.waiting_for_description)
 
 @router.message(RegistrationStates.waiting_for_media, F.text == "✅ Завершить")
 async def process_media_done(message: Message, state: FSMContext):

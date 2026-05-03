@@ -12,10 +12,20 @@ def get_main_menu():
     )
     return keyboard
 
+def get_back_keyboard():
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="⬅️ Назад")]
+        ],
+        resize_keyboard=True
+    )
+    return keyboard
+
 def get_gender_keyboard():
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="Парень"), KeyboardButton(text="Девушка")]
+            [KeyboardButton(text="Парень"), KeyboardButton(text="Девушка")],
+            [KeyboardButton(text="⬅️ Назад")]
         ],
         resize_keyboard=True
     )
@@ -25,7 +35,8 @@ def get_looking_for_keyboard():
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="Парня"), KeyboardButton(text="Девушку")],
-            [KeyboardButton(text="Всех")]
+            [KeyboardButton(text="Всех")],
+            [KeyboardButton(text="⬅️ Назад")]
         ],
         resize_keyboard=True
     )
@@ -39,7 +50,8 @@ def get_purpose_keyboard():
             [KeyboardButton(text="Создание семьи")],
             [KeyboardButton(text="Дружба")],
             [KeyboardButton(text="Поиск тимейта для игры")],
-            [KeyboardButton(text="Поиск творческого партнёра(Музыкальная группа)")]
+            [KeyboardButton(text="Поиск творческого партнёра(Музыкальная группа)")],
+            [KeyboardButton(text="⬅️ Назад")]
         ],
         resize_keyboard=True
     )
@@ -48,7 +60,8 @@ def get_purpose_keyboard():
 def get_location_keyboard():
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="📍 Отправить геолокацию", request_location=True)]
+            [KeyboardButton(text="📍 Отправить геолокацию", request_location=True)],
+            [KeyboardButton(text="⬅️ Назад")]
         ],
         resize_keyboard=True
     )
@@ -57,7 +70,8 @@ def get_location_keyboard():
 def get_media_keyboard():
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="✅ Завершить")]
+            [KeyboardButton(text="✅ Завершить")],
+            [KeyboardButton(text="⬅️ Назад")]
         ],
         resize_keyboard=True
     )
