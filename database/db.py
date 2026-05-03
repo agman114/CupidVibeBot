@@ -301,6 +301,33 @@ async def get_all_users_count():
             res = await cursor.fetchone()
             return res[0] if res else 0
 
+async def get_all_user_ids():
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute('SELECT id FROM users') as cursor:
+            rows = await cursor.fetchall()
+            return [row[0] for row in rows]
+
+async def get_users_by_name(name):
+    async with aiosqlite.connect(DB_NAME) as db:
+        db.row_factory = aiosqlite.Row
+        query = 'SELECT id, name, username FROM users WHERE name LIKE ?'
+        async with db.execute(query, ('%' + name + '%',)) as cursor:
+            return await cursor.fetchall()
+
+async def get_top_referrers(limit=10):
+    async with aiosqlite.connect(DB_NAME) as db:
+        db.row_factory = aiosqlite.Row
+        query = '''
+            SELECT u.id, u.name, COUNT(r.id) as referrals_count 
+            FROM users u
+            JOIN users r ON u.id = r.referred_by
+            GROUP BY u.id
+            ORDER BY referrals_count DESC
+            LIMIT ?
+        '''
+        async with db.execute(query, (limit,)) as cursor:
+            return await cursor.fetchall()
+
 async def get_detailed_stats():
     async with aiosqlite.connect(DB_NAME) as db:
         stats = {}
