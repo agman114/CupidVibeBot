@@ -5,7 +5,6 @@ import os
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiohttp import web
-import os
 
 from config import BOT_TOKEN, ADMIN_ID
 from database.db import create_tables
@@ -30,11 +29,6 @@ class BanMiddleware(BaseMiddleware):
                 return
         
         return await handler(event, data)
-
-async def scheduled_restart(wait_time=3600):
-    await asyncio.sleep(wait_time)
-    logging.info("Auto-restarting bot to apply updates...")
-    os.execv(sys.executable, [sys.executable] + sys.argv)
 
 async def handle_render_health_check(request):
     return web.Response(text="Bot is running!")
@@ -80,9 +74,6 @@ async def main():
     dp.include_router(vip.router)
     dp.include_router(payments.router)
     dp.include_router(super_like.router)
-    
-    # Запуск фонового рестарта (через 1 час)
-    asyncio.create_task(scheduled_restart(3600))
     
     # Запуск веб-сервера для Render (чтобы сервис не отключался)
     asyncio.create_task(start_web_server())
