@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import sys
+import os
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
@@ -26,6 +28,11 @@ class BanMiddleware(BaseMiddleware):
                 return
         
         return await handler(event, data)
+
+async def scheduled_restart(wait_time=3600):
+    await asyncio.sleep(wait_time)
+    logging.info("Auto-restarting bot to apply updates...")
+    os.execv(sys.executable, [sys.executable] + sys.argv)
 
 async def main():
     # Настройка логирования
@@ -59,6 +66,9 @@ async def main():
     dp.include_router(payments.router)
     dp.include_router(super_like.router)
     
+    # Запуск фонового рестарта (через 1 час)
+    asyncio.create_task(scheduled_restart(3600))
+
     # Запуск поллинга
     logging.info("Бот запущен!")
     await dp.start_polling(bot)
