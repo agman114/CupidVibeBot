@@ -9,7 +9,7 @@ import asyncio
 import logging
 import os
 import sys
-from database import drive_sync
+from database import telegram_sync
 
 router = Router()
 
@@ -68,6 +68,9 @@ async def admin_panel(message: Message):
         f"┣ 🔄 <b>Перезагрузка (Главные):</b>\n"
         f"┃ <code>/restart</code>\n"
         f"┃\n"
+        f"┣ 💾 <b>Восстановление БД:</b>\n"
+        f"┃ <i>Reply на файл .db с текстом</i> <code>/restore</code>\n"
+        f"┃\n"
         f"┗ 🗑 <b>Удаление:</b> (Кнопки в поиске)\n\n"
         f"━━━━━━━━━━━━━━━━━━\n"
         f"<i>Последнее обновление: {message.date.strftime('%H:%M:%S')}</i>"
@@ -112,34 +115,36 @@ async def restart_bot(message: Message):
         await message.answer("Эта команда доступна только Главным админам.")
         return
         
-    folder_id = os.environ.get("GOOGLE_DRIVE_FOLDER_ID")
-    if folder_id:
-        await message.answer("⏳ Создаю ручной бэкап базы данных на Google Диск перед перезагрузкой...")
-        success = await drive_sync.upload_backup(folder_id, "manual")
-        if success:
-            await message.answer("✅ Бэкап успешно создан (manual_backup.db). Перезагружаюсь...")
-        else:
-            await message.answer("⚠️ Не удалось создать бэкап! Перезагрузка отменена для безопасности данных.")
-            return
-    else:
-        await message.answer("⚠️ GOOGLE_DRIVE_FOLDER_ID не настроен. Бэкап не сделан. Перезагружаюсь...")
+    await message.answer("⏳ Создаю ручной бэкап базы данных перед перезагрузкой...")
+    await telegram_sync.send_manual_backup(message.bot, message.from_user.id)
+    await message.answer("✅ Бэкап отправлен в этот чат. Перезагружаюсь...")
 
     await asyncio.sleep(1)
     os.execv(sys.executable, ['python'] + sys.argv)
 
-@router.message(Command("testdrive"))
-async def test_drive_visibility(message: Message):
+@router.message(Command("restore"))
+async def restore_db(message: Message):
     user = await db.get_user(message.from_user.id)
     if not user or not user['is_super_admin']: return
     
-    folder_id = os.environ.get("GOOGLE_DRIVE_FOLDER_ID")
-    if not folder_id:
-        await message.answer("GOOGLE_DRIVE_FOLDER_ID не настроен.")
+    if not message.reply_to_message or not message.reply_to_message.document:
+        await message.answer("⚠️ Пожалуйста, сделайте Reply (Ответить) на сообщение с файлом базы данных (backup_X.db) и напишите /restore.")
         return
         
-    await message.answer("⏳ Сканирую Google Диск...")
-    files_list = await drive_sync.list_files(folder_id)
-    await message.answer(f"<b>Файлы, которые видит бот:</b>\n\n{files_list}", parse_mode="HTML")
+    doc = message.reply_to_message.document
+    if not doc.file_name.endswith('.db'):
+        await message.answer("⚠️ Это не файл базы данных (.db).")
+        return
+        
+    await message.answer("⏳ Скачиваю и устанавливаю новую базу данных...")
+    try:
+        file_info = await message.bot.get_file(doc.file_id)
+        await message.bot.download_file(file_info.file_path, "dating.db")
+        await message.answer("✅ База данных успешно восстановлена! Перезагружаюсь для применения изменений...")
+        await asyncio.sleep(1)
+        os.execv(sys.executable, ['python'] + sys.argv)
+    except Exception as e:
+        await message.answer(f"⚠️ Ошибка при загрузке файла: {e}")
 
 @router.message(Command("find"))
 async def find_user_by_name(message: Message):

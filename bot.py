@@ -8,7 +8,7 @@ from aiohttp import web
 
 from config import BOT_TOKEN, ADMIN_ID
 from database.db import create_tables
-from database import drive_sync
+from database import telegram_sync
 from handlers import registration, search, filters, admin, vip, payments, super_like
 from aiogram import BaseMiddleware
 from aiogram.types import Message, CallbackQuery
@@ -44,30 +44,24 @@ async def start_web_server():
     await site.start()
     logging.info(f"Web server started on port {port} for Render health checks.")
 
-async def short_term_backup_task(folder_id):
+async def short_term_backup_task(bot: Bot, admin_id: int):
     index = 1
     while True:
-        await asyncio.sleep(600)  # 10 минут
-        await drive_sync.upload_backup(folder_id, "short", index)
+        await asyncio.sleep(1800)  # 30 минут
+        await telegram_sync.send_telegram_backup(bot, admin_id, "short", index)
         index = index + 1 if index < 5 else 1
 
-async def daily_backup_task(folder_id):
+async def daily_backup_task(bot: Bot, admin_id):
     index = 1
     while True:
         await asyncio.sleep(86400)  # 24 часа
-        await drive_sync.upload_backup(folder_id, "daily", index)
+        await telegram_sync.send_telegram_backup(bot, admin_id, "daily", index)
         index = index + 1 if index < 3 else 1
 
 async def main():
     # Настройка логирования
     logging.basicConfig(level=logging.INFO)
     
-    # Восстановление БД из Google Drive (если настроено)
-    folder_id = os.environ.get("GOOGLE_DRIVE_FOLDER_ID")
-    if folder_id:
-        logging.info("Checking Google Drive for backups...")
-        await drive_sync.download_latest_backup(folder_id)
-        
     # Создание таблиц БД
     await create_tables()
     
@@ -100,9 +94,14 @@ async def main():
     asyncio.create_task(start_web_server())
 
     # Запуск задач резервного копирования
-    if folder_id:
-        asyncio.create_task(short_term_backup_task(folder_id))
-        asyncio.create_task(daily_backup_task(folder_id))
+    if ADMIN_ID:
+        try:
+            admin_id_int = int(ADMIN_ID)
+            asyncio.create_task(short_term_backup_task(bot, admin_id_int))
+            asyncio.create_task(daily_backup_task(bot, admin_id_int))
+        except ValueError:
+            logging.error("ADMIN_ID is not an integer. Backups won't start.")
+
 
     # Запуск поллинга
     logging.info("Бот запущен!")
