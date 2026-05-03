@@ -4,6 +4,8 @@ import sys
 import os
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiohttp import web
+import os
 
 from config import BOT_TOKEN, ADMIN_ID
 from database.db import create_tables
@@ -33,6 +35,19 @@ async def scheduled_restart(wait_time=3600):
     await asyncio.sleep(wait_time)
     logging.info("Auto-restarting bot to apply updates...")
     os.execv(sys.executable, [sys.executable] + sys.argv)
+
+async def handle_render_health_check(request):
+    return web.Response(text="Bot is running!")
+
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get("/", handle_render_health_check)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = int(os.environ.get("PORT", 8080))
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    logging.info(f"Web server started on port {port} for Render health checks.")
 
 async def main():
     # Настройка логирования
@@ -68,6 +83,9 @@ async def main():
     
     # Запуск фонового рестарта (через 1 час)
     asyncio.create_task(scheduled_restart(3600))
+    
+    # Запуск веб-сервера для Render (чтобы сервис не отключался)
+    asyncio.create_task(start_web_server())
 
     # Запуск поллинга
     logging.info("Бот запущен!")
