@@ -1,15 +1,18 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-def get_swipe_keyboard(target_user_id):
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text="👎", callback_data=f"swipe_dislike_{target_user_id}"),
-                InlineKeyboardButton(text="❤️", callback_data=f"swipe_like_{target_user_id}")
-            ]
+def get_swipe_keyboard(target_user_id, is_admin=False):
+    buttons = [
+        [
+            InlineKeyboardButton(text="👎", callback_data=f"swipe_dislike_{target_user_id}"),
+            InlineKeyboardButton(text="❤️", callback_data=f"swipe_like_{target_user_id}")
         ]
-    )
-    return keyboard
+    ]
+    if is_admin:
+        buttons.append([
+            InlineKeyboardButton(text="⛔ Бан", callback_data=f"admin_ban_{target_user_id}"),
+            InlineKeyboardButton(text="🗑️ Удалить", callback_data=f"admin_delete_{target_user_id}")
+        ])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 VALID_PURPOSES = [
     "Поиск секса/одноразового развлечения",
@@ -35,8 +38,10 @@ def get_filters_keyboard(user):
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text=f"Возраст: {age_text}", callback_data="filter_age")],
+            [InlineKeyboardButton(text=f"Кого ищу: {user['looking_for']}", callback_data="filter_looking")],
             [InlineKeyboardButton(text=f"Только мой город: {city_status}", callback_data="filter_city")],
-            [InlineKeyboardButton(text=f"Цели: {purpose_status}", callback_data="filter_purposes_menu")]
+            [InlineKeyboardButton(text=f"Цели: {purpose_status}", callback_data="filter_purposes_menu")],
+            [InlineKeyboardButton(text="❌ Закрыть", callback_data="filter_close")]
         ]
     )
     return keyboard
@@ -58,21 +63,39 @@ def get_purposes_filter_keyboard(user):
 def get_profile_keyboard():
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="✏️ Изменить анкету", callback_data="edit_profile")],
+            [InlineKeyboardButton(text="✏️ Редактировать", callback_data="edit_menu")],
             [InlineKeyboardButton(text="🗑️ Удалить", callback_data="delete_profile")]
         ]
     )
 
-def get_liker_swipe_keyboard(target_user_id):
-    keyboard = InlineKeyboardMarkup(
+def get_edit_profile_keyboard():
+    return InlineKeyboardMarkup(
         inline_keyboard=[
-            [
-                InlineKeyboardButton(text="👎", callback_data=f"likerswipe_dislike_{target_user_id}"),
-                InlineKeyboardButton(text="❤️", callback_data=f"likerswipe_like_{target_user_id}")
-            ]
+            [InlineKeyboardButton(text="👤 Имя", callback_data="edit_field_name"), 
+             InlineKeyboardButton(text="🔢 Возраст", callback_data="edit_field_age")],
+            [InlineKeyboardButton(text="🚻 Пол", callback_data="edit_field_gender"), 
+             InlineKeyboardButton(text="🔍 Кого ищу", callback_data="edit_field_looking")],
+            [InlineKeyboardButton(text="🎯 Цель", callback_data="edit_field_purpose"), 
+             InlineKeyboardButton(text="🏙️ Город", callback_data="edit_field_city")],
+            [InlineKeyboardButton(text="📝 О себе", callback_data="edit_field_desc")],
+            [InlineKeyboardButton(text="📸 Фото/Видео", callback_data="edit_field_media")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="show_profile")]
         ]
     )
-    return keyboard
+
+def get_liker_swipe_keyboard(target_user_id, is_admin=False):
+    buttons = [
+        [
+            InlineKeyboardButton(text="👎", callback_data=f"likerswipe_dislike_{target_user_id}"),
+            InlineKeyboardButton(text="❤️", callback_data=f"likerswipe_like_{target_user_id}")
+        ]
+    ]
+    if is_admin:
+        buttons.append([
+            InlineKeyboardButton(text="⛔ Бан", callback_data=f"admin_ban_{target_user_id}"),
+            InlineKeyboardButton(text="🗑️ Удалить", callback_data=f"admin_delete_{target_user_id}")
+        ])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 def get_support_keyboard():
     keyboard = InlineKeyboardMarkup(

@@ -5,6 +5,7 @@ DB_NAME = "dating.db"
 
 async def create_tables():
     async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute('PRAGMA foreign_keys = ON;')
         await db.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY,
@@ -43,13 +44,25 @@ async def create_tables():
             ('filter_age_max', 'INTEGER DEFAULT 100'),
             ('filter_city_only', 'INTEGER DEFAULT 0'),
             ('filter_purpose_only', 'INTEGER DEFAULT 0'),
-            ('filter_purposes', "TEXT DEFAULT ''")
+            ('filter_purposes', "TEXT DEFAULT ''"),
+            ('is_admin', 'INTEGER DEFAULT 0'),
+            ('is_super_admin', 'INTEGER DEFAULT 0'),
+            ('is_banned', 'INTEGER DEFAULT 0')
         ]:
             try:
                 await db.execute(f'ALTER TABLE users ADD COLUMN {col} {col_type}')
             except aiosqlite.OperationalError:
                 pass
             
+        await db.execute('''
+            CREATE TABLE IF NOT EXISTS user_media (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                file_id TEXT,
+                file_type TEXT,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        ''')
         await db.execute('''
             CREATE TABLE IF NOT EXISTS likes (
                 from_user INTEGER,
@@ -60,6 +73,25 @@ async def create_tables():
         ''')
         await db.commit()
         logging.info("Database tables created/verified.")
+
+async def add_user_media(user_id, file_id, file_type):
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute('''
+            INSERT INTO user_media (user_id, file_id, file_type)
+            VALUES (?, ?, ?)
+        ''', (user_id, file_id, file_type))
+        await db.commit()
+
+async def get_user_media(user_id):
+    async with aiosqlite.connect(DB_NAME) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute('SELECT * FROM user_media WHERE user_id = ?', (user_id,)) as cursor:
+            return await cursor.fetchall()
+
+async def clear_user_media(user_id):
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute('DELETE FROM user_media WHERE user_id = ?', (user_id,))
+        await db.commit()
 
 async def add_user(user_id, name, age, gender, looking_for, purpose, city, description, photo, username=None):
     async with aiosqlite.connect(DB_NAME) as db:
@@ -127,9 +159,10 @@ async def get_next_user(current_user_id):
     filters = []
     params = [current_user_id, current_user_id]
     
-    if looking_for != "Всех":
-        filters.append("gender = ?")
-        params.append(looking_for)
+    if looking_for == "Парня" or looking_for == "Парень":
+        filters.append("gender = 'Парень'")
+    elif looking_for == "Девушку" or looking_for == "Девушка":
+        filters.append("gender = 'Девушка'")
         
     filters.append("age BETWEEN ? AND ?")
     params.extend([current_user["filter_age_min"], current_user["filter_age_max"]])
@@ -191,3 +224,56 @@ async def get_matches(user_id):
         '''
         async with db.execute(query, (user_id, user_id)) as cursor:
             return await cursor.fetchall()
+
+async def set_ban_status(user_id, status: int):
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute('UPDATE users SET is_banned = ? WHERE id = ?', (status, user_id))
+        await db.commit()
+
+async def set_admin_status(user_id, status: int):
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute('''
+            INSERT INTO users (id, is_admin) VALUES (?, ?)
+            ON CONFLICT(id) DO UPDATE SET is_admin = excluded.is_admin
+        ''', (user_id, status))
+        await db.commit()
+
+async def set_super_admin_status(user_id, status: int):
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute('''
+            INSERT INTO users (id, is_admin, is_super_admin) VALUES (?, 1, ?)
+            ON CONFLICT(id) DO UPDATE SET is_admin = 1, is_super_admin = excluded.is_super_admin
+        ''', (user_id, status))
+        await db.commit()
+
+async def get_all_users_count():
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute('SELECT COUNT(*) FROM users') as cursor:
+            res = await cursor.fetchone()
+            return res[0] if res else 0
+
+async def get_detailed_stats():
+    async with aiosqlite.connect(DB_NAME) as db:
+        stats = {}
+        # По полу
+        async with db.execute("SELECT gender, COUNT(*) FROM users GROUP BY gender") as cursor:
+            rows = await cursor.fetchall()
+            stats['gender'] = {row[0]: row[1] for row in rows}
+        
+        # Забаненные
+        async with db.execute("SELECT COUNT(*) FROM users WHERE is_banned = 1") as cursor:
+            res = await cursor.fetchone()
+            stats['banned'] = res[0]
+            
+        # Мэтчи
+        async with db.execute("SELECT COUNT(*) FROM likes l1 JOIN likes l2 ON l1.from_user = l2.to_user AND l1.to_user = l2.from_user WHERE l1.is_like = 1 AND l2.is_like = 1 AND l1.from_user < l1.to_user") as cursor:
+            res = await cursor.fetchone()
+            stats['matches'] = res[0]
+            
+        return stats
+
+async def update_user_field(user_id, field, value):
+    async with aiosqlite.connect(DB_NAME) as db:
+        query = f'UPDATE users SET {field} = ? WHERE id = ?'
+        await db.execute(query, (value, user_id))
+        await db.commit()

@@ -33,9 +33,23 @@ async def process_filter_callback(callback: CallbackQuery, state: FSMContext):
         new_val = 0 if user["filter_city_only"] else 1
         await db.update_user_filter(user_id, "filter_city_only", new_val)
         
+    elif action == "filter_looking":
+        options = ["Парня", "Девушку", "Всех"]
+        current = user["looking_for"]
+        try:
+            next_idx = (options.index(current) + 1) % len(options)
+        except ValueError:
+            next_idx = 0
+        await db.update_user_field(user_id, "looking_for", options[next_idx])
+        
     elif action == "filter_purposes_menu":
         from keyboards.inline import get_purposes_filter_keyboard
         await callback.message.edit_reply_markup(reply_markup=get_purposes_filter_keyboard(user))
+        await callback.answer()
+        return
+        
+    elif action == "filter_close":
+        await callback.message.delete()
         await callback.answer()
         return
         

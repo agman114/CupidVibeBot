@@ -8,4 +8,14 @@ class RegistrationStates(StatesGroup):
     waiting_for_purpose = State()
     waiting_for_city = State()
     waiting_for_description = State()
-    waiting_for_photo = State()
+    waiting_for_media = State()
+
+class EditProfileStates(StatesGroup):
+    edit_name = State()
+    edit_age = State()
+    edit_city = State()
+    edit_description = State()
+    edit_media = State()
+    edit_gender = State()
+    edit_looking_for = State()
+    edit_purpose = State()

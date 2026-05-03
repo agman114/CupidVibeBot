@@ -53,3 +53,12 @@ def get_location_keyboard():
         resize_keyboard=True
     )
     return keyboard
+
+def get_media_keyboard():
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="✅ Завершить")]
+        ],
+        resize_keyboard=True
+    )
+    return keyboard

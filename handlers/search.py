@@ -11,12 +11,39 @@ async def show_next_profile(message: Message, user_id: int):
         await message.answer("На данный момент новых анкет нет. Попробуйте позже! 😔")
         return
 
+    current_user = await db.get_user(user_id)
+    is_admin = bool(current_user and current_user['is_admin'])
+
+    media = await db.get_user_media(target_user['id'])
     caption = f"{target_user['name']}, {target_user['age']}, {target_user['city']}\nЦель: {target_user['purpose']}\n\n{target_user['description']}"
-    await message.answer_photo(
-        photo=target_user['photo'],
-        caption=caption,
-        reply_markup=get_swipe_keyboard(target_user['id'])
-    )
+    
+    if is_admin:
+        caption += f"\n\n🆔 ID: <code>{target_user['id']}</code>"
+
+    if not media:
+        await message.answer_photo(
+            photo=target_user['photo'],
+            caption=caption,
+            reply_markup=get_swipe_keyboard(target_user['id'], is_admin=is_admin),
+            parse_mode="HTML"
+        )
+    elif len(media) == 1:
+        m = media[0]
+        if m['file_type'] == 'photo':
+            await message.answer_photo(photo=m['file_id'], caption=caption, reply_markup=get_swipe_keyboard(target_user['id'], is_admin=is_admin), parse_mode="HTML")
+        else:
+            await message.answer_video(video=m['file_id'], caption=caption, reply_markup=get_swipe_keyboard(target_user['id'], is_admin=is_admin), parse_mode="HTML")
+    else:
+        from aiogram.types import InputMediaPhoto, InputMediaVideo
+        media_group = []
+        for i, m in enumerate(media):
+            if m['file_type'] == 'photo':
+                media_group.append(InputMediaPhoto(media=m['file_id'], caption=caption if i == 0 else None, parse_mode="HTML"))
+            else:
+                media_group.append(InputMediaVideo(media=m['file_id'], caption=caption if i == 0 else None, parse_mode="HTML"))
+        
+        await message.answer_media_group(media=media_group)
+        await message.answer("Вам нравится эта анкета?", reply_markup=get_swipe_keyboard(target_user['id'], is_admin=is_admin))
 
 async def show_next_liker(message: Message, user_id: int):
     target_user = await db.get_next_liker(user_id)
@@ -24,12 +51,39 @@ async def show_next_liker(message: Message, user_id: int):
         await message.answer("Больше никто не лайкнул вашу анкету. 😔")
         return
 
+    current_user = await db.get_user(user_id)
+    is_admin = bool(current_user and current_user['is_admin'])
+
+    media = await db.get_user_media(target_user['id'])
     caption = f"Вы понравились этому человеку! ❤️\n\n{target_user['name']}, {target_user['age']}, {target_user['city']}\nЦель: {target_user['purpose']}\n\n{target_user['description']}"
-    await message.answer_photo(
-        photo=target_user['photo'],
-        caption=caption,
-        reply_markup=get_liker_swipe_keyboard(target_user['id'])
-    )
+    
+    if is_admin:
+        caption += f"\n\n🆔 ID: <code>{target_user['id']}</code>"
+
+    if not media:
+        await message.answer_photo(
+            photo=target_user['photo'],
+            caption=caption,
+            reply_markup=get_liker_swipe_keyboard(target_user['id'], is_admin=is_admin),
+            parse_mode="HTML"
+        )
+    elif len(media) == 1:
+        m = media[0]
+        if m['file_type'] == 'photo':
+            await message.answer_photo(photo=m['file_id'], caption=caption, reply_markup=get_liker_swipe_keyboard(target_user['id'], is_admin=is_admin), parse_mode="HTML")
+        else:
+            await message.answer_video(video=m['file_id'], caption=caption, reply_markup=get_liker_swipe_keyboard(target_user['id'], is_admin=is_admin), parse_mode="HTML")
+    else:
+        from aiogram.types import InputMediaPhoto, InputMediaVideo
+        media_group = []
+        for i, m in enumerate(media):
+            if m['file_type'] == 'photo':
+                media_group.append(InputMediaPhoto(media=m['file_id'], caption=caption if i == 0 else None, parse_mode="HTML"))
+            else:
+                media_group.append(InputMediaVideo(media=m['file_id'], caption=caption if i == 0 else None, parse_mode="HTML"))
+        
+        await message.answer_media_group(media=media_group)
+        await message.answer("Вы хотите ответить взаимностью?", reply_markup=get_liker_swipe_keyboard(target_user['id'], is_admin=is_admin))
 
 @router.message(F.text == "❤️ Смотреть анкеты")
 async def start_search(message: Message):
@@ -137,6 +191,9 @@ async def show_matches(message: Message):
         await message.answer("У вас пока нет взаимных симпатий. Продолжайте искать! ❤️")
         return
 
+    current_user = await db.get_user(message.from_user.id)
+    is_admin = bool(current_user and current_user['is_admin'])
+
     await message.answer(f"У вас {len(matches)} взаимных симпатий! 💞")
     
     for match in matches:
@@ -147,6 +204,9 @@ async def show_matches(message: Message):
             link = f"tg://user?id={match_dict['id']}"
             
         caption = f"<b>{match_dict['name']}, {match_dict['age']}</b>, {match_dict['city']}\n\n<a href='{link}'>Написать {match_dict['name']} 💌</a>"
+        if is_admin:
+            caption += f"\n\n🆔 ID: <code>{match_dict['id']}</code>"
+
         await message.answer_photo(
             photo=match_dict['photo'],
             caption=caption,
