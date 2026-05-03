@@ -127,6 +127,20 @@ async def restart_bot(message: Message):
     await asyncio.sleep(1)
     os.execv(sys.executable, ['python'] + sys.argv)
 
+@router.message(Command("testdrive"))
+async def test_drive_visibility(message: Message):
+    user = await db.get_user(message.from_user.id)
+    if not user or not user['is_super_admin']: return
+    
+    folder_id = os.environ.get("GOOGLE_DRIVE_FOLDER_ID")
+    if not folder_id:
+        await message.answer("GOOGLE_DRIVE_FOLDER_ID не настроен.")
+        return
+        
+    await message.answer("⏳ Сканирую Google Диск...")
+    files_list = await drive_sync.list_files(folder_id)
+    await message.answer(f"<b>Файлы, которые видит бот:</b>\n\n{files_list}", parse_mode="HTML")
+
 @router.message(Command("find"))
 async def find_user_by_name(message: Message):
     user = await db.get_user(message.from_user.id)

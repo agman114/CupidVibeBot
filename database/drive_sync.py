@@ -108,3 +108,19 @@ async def upload_backup(folder_id, backup_type="short", index=1):
     except Exception as e:
         logging.error(f"Error uploading backup {file_name}: {e}")
         return False
+
+async def list_files(folder_id):
+    service = get_drive_service()
+    if not service: return "Ошибка авторизации Google Drive"
+    
+    try:
+        query = f"'{folder_id}' in parents and trashed = false"
+        results = await asyncio.to_thread(service.files().list(q=query, spaces='drive', fields='files(id, name)').execute)
+        items = results.get('files', [])
+        
+        if not items:
+            return "Папка пуста (или бот ничего не видит)"
+            
+        return "\n".join([f"📄 {f['name']}" for f in items])
+    except Exception as e:
+        return f"Ошибка при запросе файлов: {e}"
