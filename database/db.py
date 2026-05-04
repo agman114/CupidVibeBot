@@ -77,6 +77,13 @@ async def create_tables():
                 PRIMARY KEY (from_user, to_user)
             )
         ''')
+        await db.execute('''
+            CREATE TABLE IF NOT EXISTS marriages (
+                user1 INTEGER,
+                user2 INTEGER,
+                PRIMARY KEY (user1, user2)
+            )
+        ''')
         await db.commit()
         logging.info("Database tables created/verified.")
 
@@ -385,4 +392,24 @@ async def get_super_likes_remaining(user_id):
 async def use_super_like(user_id):
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute('UPDATE users SET super_likes_used = super_likes_used + 1 WHERE id = ?', (user_id,))
+        await db.commit()
+
+async def get_spouse(user_id):
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute('SELECT user2 FROM marriages WHERE user1 = ?', (user_id,)) as cursor:
+            row = await cursor.fetchone()
+            if row: return row[0]
+        async with db.execute('SELECT user1 FROM marriages WHERE user2 = ?', (user_id,)) as cursor:
+            row = await cursor.fetchone()
+            if row: return row[0]
+        return None
+
+async def add_marriage(user1, user2):
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute('INSERT INTO marriages (user1, user2) VALUES (?, ?)', (user1, user2))
+        await db.commit()
+
+async def remove_marriage(user_id):
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute('DELETE FROM marriages WHERE user1 = ? OR user2 = ?', (user_id, user_id))
         await db.commit()

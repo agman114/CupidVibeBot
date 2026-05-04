@@ -9,7 +9,7 @@ from aiohttp import web
 from config import BOT_TOKEN, ADMIN_ID
 from database.db import create_tables
 from database import telegram_sync
-from handlers import registration, search, filters, admin, vip, payments, super_like, inline
+from handlers import registration, search, filters, admin, vip, payments, super_like, inline, marry
 from aiogram import BaseMiddleware
 from aiogram.types import Message, CallbackQuery
 import database.db as db
@@ -90,6 +90,7 @@ async def main():
     dp.include_router(payments.router)
     dp.include_router(super_like.router)
     dp.include_router(inline.router)
+    dp.include_router(marry.router)
     # Запуск веб-сервера для Render (чтобы сервис не отключался)
     asyncio.create_task(start_web_server())
 
