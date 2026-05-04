@@ -29,21 +29,35 @@ async def inline_actions_handler(inline_query: InlineQuery):
         # Показываем список всех доступных действий, если запрос пуст
         for action, data in ACTIONS.items():
             result_id = hashlib.md5(action.encode()).hexdigest()
-            text_message = f"{data['emoji']} {user_link} {data['text']} собеседника!"
+            # Текст запроса согласия
+            request_text = f"{data['emoji']} {user_link} хочет <b>{data['text']}</b> собеседника!\n\nВы согласны?"
+            
+            # Компактная callback_data: act:key:proposer_id:target
+            # Ограничение 64 байта, поэтому обрезаем target если нужно
+            cb_data = f"act:{action}:{user_id}:собеседника"
+            if len(cb_data.encode()) > 64: cb_data = cb_data[:60] + "..."
+
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [
+                    InlineKeyboardButton(text="Принять ✅", callback_data=cb_data),
+                    InlineKeyboardButton(text="Отклонить ❌", callback_data=f"act_dec:{user_id}")
+                ]
+            ])
             
             results.append(
                 InlineQueryResultArticle(
                     id=result_id,
                     title=f"{action.capitalize()} {data['emoji']}",
-                    description=f"{data['text']} собеседника",
+                    description=f"{data['text']} собеседника (требуется согласие)",
                     input_message_content=InputTextMessageContent(
-                        message_text=text_message,
+                        message_text=request_text,
                         parse_mode="HTML"
-                    )
+                    ),
+                    reply_markup=kb
                 )
             )
         
-        # Добавляем "Свадьбу" в список
+        # Свадьба остается как есть (у неё своя логика согласия)
         results.append(
             InlineQueryResultArticle(
                 id="hint_marry",
@@ -57,8 +71,8 @@ async def inline_actions_handler(inline_query: InlineQuery):
     else:
         lower_query = query.lower()
         
-        # Специальная обработка для "свадьба"
         if lower_query.startswith("свадьба"):
+            # Логика свадьбы (уже с согласием)
             target = query[7:].strip()
             if not target:
                 results.append(
@@ -72,7 +86,6 @@ async def inline_actions_handler(inline_query: InlineQuery):
                     )
                 )
             else:
-                # Проверяем, не женат ли уже отправитель
                 spouse = await db.get_spouse(user_id)
                 if spouse:
                     results.append(
@@ -105,86 +118,113 @@ async def inline_actions_handler(inline_query: InlineQuery):
                         )
                     )
         elif lower_query.startswith("развод"):
-            # Проверяем, женат ли пользователь
+            # Развод
             spouse = await db.get_spouse(user_id)
             if not spouse:
                 results.append(
-                    InlineQueryResultArticle(
-                        id="divorce_not_married",
-                        title="💔 Вы не в браке",
-                        description="Не с кем разводиться...",
-                        input_message_content=InputTextMessageContent(
-                            message_text="Вы не состоите в браке, поэтому развод невозможен. 🕊️"
-                        )
-                    )
-                )
+                    InlineQueryResultArticle(id="div_no", title="💔 Вы не в браке", input_message_content=InputTextMessageContent(message_text="Вы не в браке.")))
             else:
-                kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="Подтвердить развод 💔", callback_data=f"marry_divorce_confirm:{user_id}")]
-                ])
-                results.append(
-                    InlineQueryResultArticle(
-                        id="divorce_confirm",
-                        title="💔 Подать на развод",
-                        description="Это действие нельзя отменить",
-                        input_message_content=InputTextMessageContent(
-                            message_text=f"❗ {user_link} хочет подать на <b>развод</b>!\n\nВы уверены?",
-                            parse_mode="HTML"
-                        ),
-                        reply_markup=kb
-                    )
-                )
+                kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Подтвердить развод 💔", callback_data=f"marry_divorce_confirm:{user_id}")]])
+                results.append(InlineQueryResultArticle(id="div_conf", title="💔 Подать на развод", input_message_content=InputTextMessageContent(message_text=f"❗ {user_link} хочет подать на развод!", parse_mode="HTML"), reply_markup=kb))
         else:
             matched_action = None
             target = ""
-            
-            # Проверяем, начинается ли запрос с одного из предустановленных действий
             for action in ACTIONS:
                 if lower_query.startswith(action):
                     matched_action = action
-                    target = query[len(action):].strip()
+                    target = query[len(action):].strip() or "собеседника"
                     break
                     
             if matched_action:
                 data = ACTIONS[matched_action]
-                emoji = data["emoji"]
-                action_text = data["text"]
+                request_text = f"{data['emoji']} {user_link} хочет <b>{data['text']}</b> {target}!\n\nВы согласны?"
+                cb_data = f"act:{matched_action}:{user_id}:{target}"
+                if len(cb_data.encode()) > 64: cb_data = cb_data.encode()[:60].decode('utf-8', 'ignore') + "..."
                 
-                if target:
-                    final_text = f"{emoji} {user_link} {action_text} {target}!"
-                    desc = f"{action_text} {target}"
-                else:
-                    final_text = f"{emoji} {user_link} {action_text} собеседника!"
-                    desc = f"{action_text} собеседника"
-                    
+                kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [
+                        InlineKeyboardButton(text="Принять ✅", callback_data=cb_data),
+                        InlineKeyboardButton(text="Отклонить ❌", callback_data=f"act_dec:{user_id}")
+                    ]
+                ])
                 results.append(
                     InlineQueryResultArticle(
                         id=hashlib.md5(f"action_{matched_action}_{target}".encode()).hexdigest(),
-                        title=f"{matched_action.capitalize()} {emoji}",
-                        description=desc,
-                        input_message_content=InputTextMessageContent(
-                            message_text=final_text,
-                            parse_mode="HTML"
-                        )
+                        title=f"{matched_action.capitalize()} {data['emoji']}",
+                        description=f"{data['text']} {target} (требуется согласие)",
+                        input_message_content=InputTextMessageContent(message_text=request_text, parse_mode="HTML"),
+                        reply_markup=kb
                     )
                 )
             else:
                 # Кастомное действие
-                custom_id = hashlib.md5(f"custom_{query}".encode()).hexdigest()
-                custom_text = f"✨ {user_link} {query}"
+                request_text = f"✨ {user_link} хочет: <b>{query}</b>!\n\nВы согласны?"
+                cb_data = f"act:custom:{user_id}:{query}"
+                if len(cb_data.encode()) > 64: cb_data = cb_data.encode()[:60].decode('utf-8', 'ignore') + "..."
+                
+                kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [
+                        InlineKeyboardButton(text="Принять ✅", callback_data=cb_data),
+                        InlineKeyboardButton(text="Отклонить ❌", callback_data=f"act_dec:{user_id}")
+                    ]
+                ])
                 results.append(
                     InlineQueryResultArticle(
-                        id=custom_id,
+                        id=hashlib.md5(f"custom_{query}".encode()).hexdigest(),
                         title="Свое действие ✨",
-                        description=query,
-                        input_message_content=InputTextMessageContent(
-                            message_text=custom_text,
-                            parse_mode="HTML"
-                        )
+                        description=f"{query} (требуется согласие)",
+                        input_message_content=InputTextMessageContent(message_text=request_text, parse_mode="HTML"),
+                        reply_markup=kb
                     )
                 )
 
     await inline_query.answer(results, cache_time=1, is_personal=True)
+
+@router.callback_query(F.data.startswith("act:"))
+async def action_accept_handler(callback: CallbackQuery, bot: Bot):
+    # act:key:proposer_id:target
+    parts = callback.data.split(":", 3)
+    action_key = parts[1]
+    proposer_id = int(parts[2])
+    target_text = parts[3]
+    
+    clicker_id = callback.from_user.id
+    if clicker_id == proposer_id:
+        await callback.answer("Вы не можете принять действие от самого себя! 😂", show_alert=True)
+        return
+        
+    proposer = await bot.get_chat(proposer_id)
+    proposer_name = proposer.first_name
+    clicker_name = callback.from_user.first_name
+    
+    if action_key == "custom":
+        final_text = f"✨ <b>{proposer_name}</b> {target_text} <i>(согласие: {clicker_name})</i>"
+    else:
+        data = ACTIONS.get(action_key, {"emoji": "✨", "text": "сделал действие с"})
+        final_text = f"{data['emoji']} <b>{proposer_name}</b> {data['text']} <b>{clicker_name}</b>!"
+        
+    await bot.edit_message_text(
+        text=final_text,
+        inline_message_id=callback.inline_message_id,
+        parse_mode="HTML"
+    )
+    await callback.answer("Действие выполнено! ✨")
+
+@router.callback_query(F.data.startswith("act_dec:"))
+async def action_decline_handler(callback: CallbackQuery, bot: Bot):
+    proposer_id = int(callback.data.split(":")[1])
+    
+    if callback.from_user.id == proposer_id:
+        text = "❌ Действие отменено автором."
+    else:
+        text = f"❌ <b>{callback.from_user.first_name}</b> отклонил(а) действие."
+        
+    await bot.edit_message_text(
+        text=text,
+        inline_message_id=callback.inline_message_id,
+        parse_mode="HTML"
+    )
+    await callback.answer("Отклонено.")
 
 @router.callback_query(F.data.startswith("marry_agree:"))
 async def marry_agree_handler(callback: CallbackQuery, bot: Bot):
